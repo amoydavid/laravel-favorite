@@ -37,10 +37,12 @@ trait Favoriteable
             ->where(\config('favorite.user_foreign_key'), $user->getKey())->count() > 0;
     }
 
+    /*
     public function favorites(): \Illuminate\Database\Eloquent\Relations\MorphMany
     {
         return $this->morphMany(config('favorite.favorite_model'), 'favoriteable');
     }
+    */
 
     public function favoriters(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
