@@ -8,27 +8,43 @@ use Illuminate\Pagination\AbstractCursorPaginator;
 use Illuminate\Pagination\AbstractPaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
+use Overtrue\LaravelFavorite\Favorite;
 
 /**
  * @property \Illuminate\Database\Eloquent\Collection $favorites
  */
 trait Favoriter
 {
-    public function favorite(Model $object): void
+    public function favorite(Model $object): Favorite
     {
         /* @var \Overtrue\LaravelFavorite\Traits\Favoriteable|Model $object */
-        if (! $this->hasFavorited($object)) {
-            $favorite = app(config('favorite.favorite_model'));
-            $favorite->{config('favorite.user_foreign_key')} = $this->getKey();
+        $attributes = [
+            'favoriteable_type' => $object->getMorphClass(),
+            'favoriteable_id' => $object->getKey(),
+            config('favorite.user_foreign_key') => $this->getKey(),
+        ];
 
-            $object->favorites()->save($favorite);
-        }
+        /* @var \Illuminate\Database\Eloquent\Model $like */
+        $favorite = \app(config('favorite.favorite_model'));
+
+        /* @var \Overtrue\LaravelLike\Traits\Favoriter|\Illuminate\Database\Eloquent\Model $object */
+        return $favorite->where($attributes)->firstOr(
+            function () use ($favorite, $attributes) {
+                return $favorite->unguarded(function () use ($favorite, $attributes) {
+                    if ($this->relationLoaded('favoriters')) {
+                        $this->unsetRelation('favoriters');
+                    }
+
+                    return $favorite->create($attributes);
+                });
+            }
+        );
     }
 
     public function unfavorite(Model $object): void
     {
         /* @var \Overtrue\LaravelFavorite\Traits\Favoriteable $object */
-        $relation = $object->favorites()
+        $relation = \app(config('favorite.favorite_model'))
             ->where('favoriteable_id', $object->getKey())
             ->where('favoriteable_type', $object->getMorphClass())
             ->where(config('favorite.user_foreign_key'), $this->getKey())
